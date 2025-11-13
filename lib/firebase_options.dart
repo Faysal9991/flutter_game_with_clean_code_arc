@@ -47,28 +47,30 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyCMJSIVIRd0iBpot7xQknRtkm67S5EntgM',
-    appId: '1:348089054168:web:6369aab4be4ee1b0e478ad',
-    messagingSenderId: '348089054168',
-    projectId: 'tanvirhasan-flame-game-2025',
-    authDomain: 'tanvirhasan-flame-game-2025.firebaseapp.com',
-    storageBucket: 'tanvirhasan-flame-game-2025.firebasestorage.app',
+    apiKey: 'AIzaSyB3esvgWciEk9F_rm4Ms9KIeuaKRmEoBxc',
+    appId: '1:460415886376:web:38d6ff2b092cb90455811d',
+    messagingSenderId: '460415886376',
+    projectId: 'flutter-faysal-game-v2-32c09',
+    authDomain: 'flutter-faysal-game-v2-32c09.firebaseapp.com',
+    storageBucket: 'flutter-faysal-game-v2-32c09.firebasestorage.app',
+    measurementId: 'G-9038TQWT4K',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBBU8GADOf5DOTMcDG4X4vj7nnsXu1wal0',
-    appId: '1:348089054168:android:1fa23c7f31406eb9e478ad',
-    messagingSenderId: '348089054168',
-    projectId: 'tanvirhasan-flame-game-2025',
-    storageBucket: 'tanvirhasan-flame-game-2025.firebasestorage.app',
+    apiKey: 'AIzaSyCQbNOsc89hIn8YiIjSxxP0r90oPsQ3NbU',
+    appId: '1:460415886376:android:78cf13404246c13455811d',
+    messagingSenderId: '460415886376',
+    projectId: 'flutter-faysal-game-v2-32c09',
+    storageBucket: 'flutter-faysal-game-v2-32c09.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyAzkS5re8c-Ct3GhC8LkzJi1sc5IzA2pe0',
-    appId: '1:348089054168:ios:736abb5327e3532ce478ad',
-    messagingSenderId: '348089054168',
-    projectId: 'tanvirhasan-flame-game-2025',
-    storageBucket: 'tanvirhasan-flame-game-2025.firebasestorage.app',
+    apiKey: 'AIzaSyC1qhDHtM9Qz-KpHr9Adxzv99LPA336AQA',
+    appId: '1:460415886376:ios:596d8f430b92605c55811d',
+    messagingSenderId: '460415886376',
+    projectId: 'flutter-faysal-game-v2-32c09',
+    storageBucket: 'flutter-faysal-game-v2-32c09.firebasestorage.app',
     iosBundleId: 'com.example.flutterFaysalGame',
   );
+
 }
