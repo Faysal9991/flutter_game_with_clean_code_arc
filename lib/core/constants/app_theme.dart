@@ -1,16 +1,15 @@
-// lib/core/constants/app_theme.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 
 class AppTheme {
-  // ── Reusable Text Styles (Black/White only) ───────────────────────
+  // ───────────────────────── Base Text Styles ─────────────────────────
   static TextStyle _baseTextStyle(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return GoogleFonts.roboto(
       fontSize: 16.sp,
-      color: isDark ? Colors.white : Colors.black,
+      color: isDark ? AppColors.glow : AppColors.ink,
     );
   }
 
@@ -19,8 +18,8 @@ class AppTheme {
     return GoogleFonts.roboto(
       fontSize: 28.sp,
       fontWeight: FontWeight.w700,
-      color: isDark ? Colors.white : Colors.black,
       letterSpacing: 1.2,
+      color: isDark ? AppColors.glow : AppColors.sea,
     );
   }
 
@@ -28,7 +27,7 @@ class AppTheme {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return GoogleFonts.roboto(
       fontSize: 16.sp,
-      color: isDark ? Colors.white70 : Colors.black54,
+      color: isDark ? AppColors.glow.withOpacity(0.7) : AppColors.sea,
     );
   }
 
@@ -36,20 +35,19 @@ class AppTheme {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return GoogleFonts.roboto(
       fontSize: 16.sp,
-      color: isDark ? Colors.white : Colors.black,
+      color: isDark ? AppColors.glow : AppColors.ink,
     );
   }
 
-  // ── Light Theme ─────────────────────────────────────────────────────
+  // ───────────────────────── Light Theme ─────────────────────────────
   static ThemeData light(BuildContext context) {
     return ThemeData(
       brightness: Brightness.light,
       fontFamily: GoogleFonts.roboto().fontFamily,
-      scaffoldBackgroundColor: Colors.white, // Pure white
-      primaryColor: AppColors.primary,
-      cardColor: AppColors.parchment.withOpacity(0.98),
+      scaffoldBackgroundColor: Colors.white,
+      primaryColor: AppColors.primaryGreen,
+      cardColor: AppColors.sky.withOpacity(0.15),
 
-      // Text Theme: Black only
       textTheme: TextTheme(
         headlineMedium: _headlineMedium(context),
         titleMedium: _titleMedium(context),
@@ -57,32 +55,32 @@ class AppTheme {
         labelLarge: GoogleFonts.roboto(
           fontSize: 16.sp,
           fontWeight: FontWeight.bold,
-          color: Colors.white, // Button text
+          color: Colors.white,
         ),
       ),
 
-      // Buttons: Use AppColors
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
+          backgroundColor: AppColors.primaryGreen,
           foregroundColor: Colors.white,
           textStyle: GoogleFonts.roboto(fontWeight: FontWeight.w600),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-          elevation: 8,
-          shadowColor: AppColors.primary.withOpacity(0.4),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.r),
+          ),
+          elevation: 6,
+          shadowColor: AppColors.primaryGreen.withOpacity(0.5),
         ),
       ),
 
-      // Input Fields
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.parchment800.withOpacity(0.6),
+        fillColor: AppColors.sky.withOpacity(0.2),
         labelStyle: GoogleFonts.roboto(
-          color: Colors.black54,
+          color: AppColors.sea.withOpacity(0.8),
           fontSize: 14.sp,
         ),
         hintStyle: GoogleFonts.roboto(
-          color: Colors.black38,
+          color: AppColors.sea.withOpacity(0.5),
           fontSize: 16.sp,
         ),
         border: OutlineInputBorder(
@@ -91,27 +89,26 @@ class AppTheme {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16.r),
-          borderSide: BorderSide(color: Colors.black26, width: 1.5),
+          borderSide: BorderSide(color: AppColors.sea.withOpacity(0.3), width: 1.5),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16.r),
-          borderSide: BorderSide(color: AppColors.asparagus, width: 2.5),
+          borderSide: BorderSide(color: AppColors.primaryGreen, width: 2.5),
         ),
         contentPadding: EdgeInsets.symmetric(vertical: 20.h, horizontal: 18.w),
       ),
     );
   }
 
-  // ── Dark Theme ──────────────────────────────────────────────────────
+  // ───────────────────────── Dark Theme ──────────────────────────────
   static ThemeData dark(BuildContext context) {
     return ThemeData(
       brightness: Brightness.dark,
       fontFamily: GoogleFonts.roboto().fontFamily,
-      scaffoldBackgroundColor: Colors.black, // Pure black
-      primaryColor: AppColors.primary,
-      cardColor: AppColors.hunterGreen200.withOpacity(0.95),
+      scaffoldBackgroundColor: AppColors.ink,
+      primaryColor: AppColors.primaryGreen,
+      cardColor: AppColors.sea.withOpacity(0.6),
 
-      // Text Theme: White only
       textTheme: TextTheme(
         headlineMedium: _headlineMedium(context),
         titleMedium: _titleMedium(context),
@@ -119,32 +116,32 @@ class AppTheme {
         labelLarge: GoogleFonts.roboto(
           fontSize: 16.sp,
           fontWeight: FontWeight.bold,
-          color: Colors.white, // Button text
+          color: AppColors.glow,
         ),
       ),
 
-      // Buttons: Use AppColors
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
+          backgroundColor: AppColors.primaryGreen,
+          foregroundColor: AppColors.ink,
           textStyle: GoogleFonts.roboto(fontWeight: FontWeight.w600),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-          elevation: 8,
-          shadowColor: AppColors.primary.withOpacity(0.4),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.r),
+          ),
+          elevation: 12,
+          shadowColor: AppColors.neonGreen.withOpacity(0.3),
         ),
       ),
 
-      // Input Fields
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.hunterGreen200.withOpacity(0.3),
+        fillColor: AppColors.ink.withOpacity(0.35),
         labelStyle: GoogleFonts.roboto(
-          color: Colors.white70,
+          color: AppColors.glow.withOpacity(0.7),
           fontSize: 14.sp,
         ),
         hintStyle: GoogleFonts.roboto(
-          color: Colors.white54,
+          color: AppColors.glow.withOpacity(0.4),
           fontSize: 16.sp,
         ),
         border: OutlineInputBorder(
@@ -153,11 +150,11 @@ class AppTheme {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16.r),
-          borderSide: BorderSide(color: Colors.white24, width: 1.5),
+          borderSide: BorderSide(color: AppColors.glow.withOpacity(0.3), width: 1.5),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16.r),
-          borderSide: BorderSide(color: AppColors.asparagus, width: 2.5),
+          borderSide: BorderSide(color: AppColors.neonBlue, width: 2.5),
         ),
         contentPadding: EdgeInsets.symmetric(vertical: 20.h, horizontal: 18.w),
       ),

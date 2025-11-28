@@ -1,4 +1,3 @@
-// presentation/widgets/custom_text_field.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../core/constants/app_colors.dart';
@@ -11,11 +10,11 @@ class CustomTextField extends StatelessWidget {
   final TextInputType keyboardType;
   final String? Function(String?)? validator;
   final bool enabled;
-  
-  // ── NEW PROPS ───────────────────────────────────────────────────────
-  final bool readOnly;          // makes the field non-editable
-  final VoidCallback? onTap;    // opens picker / dialog
-  final Widget? suffixIcon;     // e.g. dropdown arrow
+
+  // NEW PROPS
+  final bool readOnly;
+  final VoidCallback? onTap;
+  final Widget? suffixIcon;
 
   const CustomTextField({
     super.key,
@@ -26,7 +25,7 @@ class CustomTextField extends StatelessWidget {
     this.keyboardType = TextInputType.text,
     this.validator,
     this.enabled = true,
-    this.readOnly = false,      // default
+    this.readOnly = false,
     this.onTap,
     this.suffixIcon,
   });
@@ -34,6 +33,19 @@ class CustomTextField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // TEXT COLORS
+    final textColor = isDark ? AppColors.glow : AppColors.sea;
+    final labelColor = isDark ? AppColors.neonBlue : AppColors.primaryGreen;
+
+    // FIELD BACKGROUND
+    final fillColor = isDark
+        ? AppColors.ink.withOpacity(0.4)
+        : AppColors.sky.withOpacity(0.25);
+
+    // BORDER COLORS
+    final enabledBorderColor = isDark ? AppColors.neonBlue : AppColors.sky;
+    final focusedBorderColor = isDark ? AppColors.neonGreen : AppColors.primaryGreen;
 
     return TextFormField(
       controller: controller,
@@ -43,61 +55,77 @@ class CustomTextField extends StatelessWidget {
       readOnly: readOnly,
       onTap: onTap,
       validator: validator,
+
       style: TextStyle(
         fontSize: 16.sp,
-        color: isDark ? AppColors.parchment : AppColors.hunterGreen,
+        color: textColor,
       ),
+
       decoration: InputDecoration(
         labelText: label,
         labelStyle: TextStyle(
           fontSize: 14.sp,
-          color: isDark ? AppColors.parchment700 : AppColors.hunterGreen700,
+          color: labelColor,
         ),
+
         prefixIcon: Icon(
           icon,
           size: 20.r,
-          color: isDark ? AppColors.parchment600 : AppColors.hunterGreen600,
+          color: isDark ? AppColors.neonBlue : AppColors.primaryGreen,
         ),
-        suffixIcon: suffixIcon,                 // ← dropdown arrow
+
+        suffixIcon: suffixIcon,
+
         filled: true,
-        fillColor: isDark
-            ? AppColors.hunterGreen200.withOpacity(0.3)
-            : AppColors.parchment800.withOpacity(0.6),
+        fillColor: fillColor,
+
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16.r),
           borderSide: BorderSide.none,
         ),
+
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16.r),
           borderSide: BorderSide(
-            color: isDark ? AppColors.hunterGreen600 : AppColors.hunterGreen300,
+            color: enabledBorderColor,
             width: 1.5,
           ),
         ),
+
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16.r),
-          borderSide: BorderSide(color: AppColors.asparagus, width: 2.5),
+          borderSide: BorderSide(
+            color: focusedBorderColor,
+            width: 2.4,
+          ),
         ),
+
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16.r),
           borderSide: BorderSide(
-            color: isDark ? Colors.red.shade400 : Colors.red.shade700,
-            width: 1.5,
+            color: AppColors.neonPurple,
+            width: 1.4,
           ),
         ),
+
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16.r),
           borderSide: BorderSide(
-            color: isDark ? Colors.red.shade400 : Colors.red.shade700,
-            width: 2.5,
+            color: AppColors.neonPurple,
+            width: 2.4,
           ),
         ),
+
         errorStyle: TextStyle(
           fontSize: 12.sp,
-          color: isDark ? Colors.red.shade400 : Colors.red.shade700,
+          color: AppColors.neonPurple,
           fontWeight: FontWeight.w500,
         ),
-        contentPadding: EdgeInsets.symmetric(vertical: 20.h, horizontal: 18.w),
+
+        contentPadding: EdgeInsets.symmetric(
+          vertical: 20.h,
+          horizontal: 18.w,
+        ),
       ),
     );
   }

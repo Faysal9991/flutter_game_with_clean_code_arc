@@ -1,7 +1,16 @@
 // presentation/screens/home/home_screen.dart
+import 'package:carousel_slider/carousel_options.dart';
+import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_faysal_game/data/models/user_profile.dart';
+import 'package:flutter_faysal_game/presentation/screens/home/model/user_daily_task.dart';
+import 'package:flutter_faysal_game/presentation/screens/home/provider/home_provider.dart';
+import 'package:flutter_faysal_game/presentation/screens/widgets/background.dart';
+import 'package:flutter_faysal_game/presentation/screens/widgets/header.dart';
+import 'package:flutter_faysal_game/presentation/screens/widgets/week_challange_card.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../../core/constants/app_colors.dart';
@@ -17,23 +26,109 @@ class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseCtrl;
   late Animation<double> _pulseAnim;
+  
+  // Text controllers for report form
+  final TextEditingController _issueController = TextEditingController();
+  final TextEditingController _locationController = TextEditingController();
+  final _reportFormKey = GlobalKey<FormState>();
 
   @override
-  void initState() {
-    super.initState();
-    _pulseCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    )..repeat(reverse: true);
-    _pulseAnim = Tween<double>(begin: 1.0, end: 1.1).animate(
-      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
-    );
-  }
+@override
+void initState() {
+  super.initState();
 
+  /// ---- SAFE PROVIDER CALL AFTER BUILD ----
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    Provider.of<HomeProvider>(context, listen: false).getUserLocation();
+  });
+
+  /// ---- YOUR ANIMATION CONTROLLERS ----
+  _pulseCtrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2000),
+  )..repeat(reverse: true);
+
+  _pulseAnim = Tween<double>(
+    begin: 1.0,
+    end: 1.1,
+  ).animate(
+    CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
+  );
+}
+
+
+getUserLocation()async{
+  
+Provider.of<HomeProvider>(context,listen: false).getUserLocation();
+}
   @override
   void dispose() {
     _pulseCtrl.dispose();
+    _issueController.dispose();
+    _locationController.dispose();
     super.dispose();
+  }
+
+  // Helper method to submit report
+  void _submitReport() {
+    if (_reportFormKey.currentState!.validate()) {
+      // TODO: Implement your report submission logic here
+      final issue = _issueController.text.trim();
+      final location = _locationController.text.trim();
+      
+      print('Issue: $issue');
+      print('Location: $location');
+      
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Report submitted successfully!'),
+          backgroundColor: AppColors.neonGreen,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      
+      // Clear form
+      _issueController.clear();
+      _locationController.clear();
+      FocusScope.of(context).unfocus();
+    }
+  }
+
+  // Helper method to launch URL
+  Future<void> _launchUrl(String url) async {
+    final Uri uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open $url')),
+        );
+      }
+    }
+  }
+
+  // Helper method to launch phone dialer
+  Future<void> _launchPhone(String phoneNumber) async {
+    final Uri uri = Uri.parse('tel:$phoneNumber');
+    if (!await launchUrl(uri)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open phone dialer')),
+        );
+      }
+    }
+  }
+
+  // Helper method to launch email
+  Future<void> _launchEmail(String email) async {
+    final Uri uri = Uri.parse('mailto:$email');
+    if (!await launchUrl(uri)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open email client')),
+        );
+      }
+    }
   }
 
   @override
@@ -44,563 +139,806 @@ class _HomeScreenState extends State<HomeScreen>
 
     return Scaffold(
       backgroundColor: isDark ? Colors.black : const Color(0xFFF8F9FA),
-      body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            // ── App Bar ──────────────────────────────────────────────
-            SliverAppBar(
-              expandedHeight: 200.h,
-              floating: false,
-              pinned: true,
-              backgroundColor: isDark ? Colors.black : Colors.white,
-              flexibleSpace: FlexibleSpaceBar(
-                background: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: isDark
-                          ? [
-                              AppColors.hunterGreen,
-                              AppColors.hunterGreen600,
-                            ]
-                          : [
-                              AppColors.asparagus,
-                              AppColors.yellowGreen,
-                            ],
-                    ),
-                  ),
-                  child: Stack(
-                    children: [
-                      // Decorative circles
-                      Positioned(
-                        top: -50,
-                        right: -50,
-                        child: Container(
-                          width: 200.r,
-                          height: 200.r,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white.withOpacity(0.1),
+      body: Consumer<HomeProvider>(
+        builder: (context, provider, child) {
+          return SafeArea(
+            child: HomeScreenAnimatedBackground(
+              child: CustomScrollView(
+                slivers: [
+                  UserProfileHeader(),
+
+                  StreamBuilder<List<Challenge>>(
+                    stream: context.read<HomeProvider>().getAllChallenges(),
+                    builder: (context, snapshot) {
+                      // ───── Loading ─────
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const SliverToBoxAdapter(
+                          child: SizedBox(
+                            height: 300,
+                            child: Center(child: CircularProgressIndicator()),
                           ),
-                        ),
-                      ),
-                      Positioned(
-                        bottom: -30,
-                        left: -30,
-                        child: Container(
-                          width: 150.r,
-                          height: 150.r,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white.withOpacity(0.05),
-                          ),
-                        ),
-                      ),
-                      // Content
-                      Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.airplanemode_active,
-                              size: 60.r,
-                              color: Colors.white,
-                            ),
-                            SizedBox(height: 12.h),
-                            Text(
-                              'Corporate Battle',
-                              style: theme.textTheme.headlineMedium?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 26.sp,
-                                letterSpacing: 1.5,
+                        );
+                      }
+
+                      // ───── Error ─────
+                      if (snapshot.hasError) {
+                        return SliverToBoxAdapter(
+                          child: SizedBox(
+                            height: 120,
+                            child: Center(
+                              child: Text(
+                                'Failed to load challenges',
+                                style: TextStyle(color: Colors.red[300]),
                               ),
                             ),
-                            Text(
-                              'Arena',
-                              style: theme.textTheme.titleLarge?.copyWith(
-                                color: Colors.white.withOpacity(0.9),
-                                fontWeight: FontWeight.w600,
-                                fontSize: 18.sp,
-                                letterSpacing: 3,
+                          ),
+                        );
+                      }
+
+                      // ───── Empty ─────
+                      final challenges = snapshot.data ?? [];
+                      if (challenges.isEmpty) {
+                        return const SliverToBoxAdapter(
+                          child: SizedBox(
+                            height: 120,
+                            child: Center(child: Text('No challenges yet')),
+                          ),
+                        );
+                      }
+
+                      // ───── Carousel Slider (Horizontal) ─────
+                      return SliverToBoxAdapter(
+                        child: SizedBox(
+                          height: 50.h,
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: challenges.length,
+                              itemBuilder: (context, index) {
+                                return InkWell(
+                                  onTap: () =>
+                                      provider.changeSelectedWeek(index),
+                                  child: Container(
+                                    margin: EdgeInsets.only(left: 10.0),
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 8.w,
+                                      vertical: 6.h,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          index == provider.selectedWeek
+                                              ? AppColors.neonGreen.withOpacity(
+                                                  0.3,
+                                                )
+                                              : AppColors.neonBlue.withOpacity(
+                                                  0.3,
+                                                ),
+                                          index == provider.selectedWeek
+                                              ? AppColors.neonGreen.withOpacity(
+                                                  0.3,
+                                                )
+                                              : AppColors.neonBlue.withOpacity(
+                                                  0.3,
+                                                ),
+                                        ],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(14.r),
+                                      border: Border.all(
+                                        color: AppColors.neonBlue.withOpacity(
+                                          0.5,
+                                        ),
+                                        width: 1.5,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: index == provider.selectedWeek
+                                              ? AppColors.neonGreen.withOpacity(
+                                                  0.3,
+                                                )
+                                              : AppColors.neonBlue.withOpacity(
+                                                  0.3,
+                                                ),
+                                          blurRadius: 6,
+                                          spreadRadius: 0.5,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Text(
+                                      "${challenges[index].week} week",
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 13.sp,
+                                        fontWeight: FontWeight.bold,
+                                        shadows: [
+                                          Shadow(
+                                            color: index == provider.selectedWeek
+                                                ? AppColors.neonGreen
+                                                    .withOpacity(
+                                                    0.3,
+                                                  )
+                                                : AppColors.neonBlue
+                                                    .withOpacity(
+                                                    0.3,
+                                                  ),
+                                            blurRadius: 6,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+
+                  // Weekly Challenges Stream
+                  StreamBuilder<List<Challenge>>(
+                    stream: context.read<HomeProvider>().getAllChallenges(),
+                    builder: (context, snapshot) {
+                      // ───── Loading ─────
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const SliverToBoxAdapter(
+                          child: SizedBox(
+                            height: 300,
+                            child: Center(child: CircularProgressIndicator()),
+                          ),
+                        );
+                      }
+
+                      // ───── Error ─────
+                      if (snapshot.hasError) {
+                        return SliverToBoxAdapter(
+                          child: SizedBox(
+                            height: 120,
+                            child: Center(
+                              child: Text(
+                                'Failed to load challenges',
+                                style: TextStyle(color: Colors.red[300]),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                IconButton(
-                  icon: Icon(Icons.person_outline, color: isDark ? Colors.white : Colors.black87),
-                  onPressed: () {
-                    // Navigate to profile
-                  },
-                ),
-                SizedBox(width: 8.w),
-              ],
-            ),
+                          ),
+                        );
+                      }
 
-            // ── Content ──────────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.all(24.w),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Welcome Section
-                    _buildWelcomeSection(auth, theme, isDark),
-                    SizedBox(height: 32.h),
+                      // ───── Empty ─────
+                      final challenges = snapshot.data ?? [];
+                      if (challenges.isEmpty) {
+                        return const SliverToBoxAdapter(
+                          child: SizedBox(
+                            height: 120,
+                            child: Center(child: Text('No challenges yet')),
+                          ),
+                        );
+                      }
 
-                    // Start Battle Button
-                    _buildStartBattleButton(theme, isDark),
-                    SizedBox(height: 24.h),
+                      // ───── Carousel Slider (Horizontal) ─────
+                      return SliverToBoxAdapter(
+                        child: SizedBox(
+                          height: 450.h,
+                          child: CarouselSlider.builder(
+                            itemCount:
+                                challenges[provider.selectedWeek].tasks.length,
+                            itemBuilder: (context, index, realIndex) {
+                              final task =
+                                  challenges[provider.selectedWeek].tasks;
+                              return Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 2.w),
+                                child: // First, update your user model to track completed days per week
+// Then update the logic in your home screen
 
-                    // Quick Stats
-                    _buildQuickStats(theme, isDark),
-                    SizedBox(height: 32.h),
+StreamBuilder<AppUser?>(
+  stream: provider.userFullStream(),
+  builder: (context, snapshot) {
+    // 1. Loading state
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-                    // Game Modes
-                    _buildGameModesSection(theme, isDark),
-                    SizedBox(height: 32.h),
+    // 2. Error state
+    if (snapshot.hasError) {
+      return Center(child: Text("Error: ${snapshot.error}"));
+    }
 
-                    // Features
-                    _buildFeaturesSection(theme, isDark),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+    // 3. No user data
+    final user = snapshot.data;
+    if (user == null) {
+      return const SizedBox.shrink();
+    }
+
+    // 4. Calculate completed days for the SELECTED WEEK
+    // selectedWeek is 0-indexed (0 = Week 1, 1 = Week 2, etc.)
+    final currentWeekNumber = provider.selectedWeek + 1;
+    
+    // Calculate total days before current week
+    final daysBeforeCurrentWeek = provider.selectedWeek * 7;
+    
+    // Calculate how many days are completed in the current week
+    final totalCompletedDays = user.stats.completedDays;
+    
+    // Days completed in current week
+    int completedDaysInCurrentWeek = 0;
+    if (totalCompletedDays > daysBeforeCurrentWeek) {
+      completedDaysInCurrentWeek = totalCompletedDays - daysBeforeCurrentWeek;
+      if (completedDaysInCurrentWeek > 7) {
+        completedDaysInCurrentWeek = 7; // Max 7 days per week
+      }
+    }
+
+    // 5. Determine lock & completed state for THIS week's day
+    final isCompleted = index < completedDaysInCurrentWeek;
+    final isLocked = index > completedDaysInCurrentWeek;
+
+    // 6. Show task card
+    return DailyTaskUploadCard(
+      index: index,
+      weekTitle: task[index].day.toString(),
+      mainTask: task[index].task,
+      imageurl: challenges[provider.selectedWeek].badgeUrl,
+      isLocked: isLocked,
+      isCompleted: isCompleted,
+      onComplete: () {
+        print('Task done!');
+      },
     );
-  }
+  },
+) );
+                            },
+                            options: CarouselOptions(
+                              height: 380.h,
+                              autoPlay: false,
+                              autoPlayInterval: const Duration(seconds: 4),
+                              autoPlayAnimationDuration:
+                                  const Duration(milliseconds: 800),
+                              autoPlayCurve: Curves.easeInOutCubic,
+                              enlargeCenterPage: true,
+                              enlargeFactor: 0.25,
+                              viewportFraction: 0.75,
+                              enableInfiniteScroll: challenges.length > 1,
+                              pageSnapping: true,
+                              padEnds: true,
+                              disableCenter: true,
+                              scrollPhysics: const BouncingScrollPhysics(),
+                              scrollDirection: Axis.horizontal,
+                              onPageChanged: (idx, reason) {},
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
 
-  Widget _buildWelcomeSection(AuthProvider auth, ThemeData theme, bool isDark) {
-    return Container(
+                  // ═══════════════════════════════════════════════════════
+                  // SUBMIT REPORT FORM
+                  // ═══════════════════════════════════════════════════════
+                  SliverToBoxAdapter(
+  child: Padding(
+    padding: EdgeInsets.symmetric(
+      horizontal: 24.w,
+      vertical: 16.h,
+    ),
+    child: Container(
       padding: EdgeInsets.all(20.w),
       decoration: BoxDecoration(
-        color: isDark
-            ? AppColors.hunterGreen200.withOpacity(0.2)
-            : Colors.white,
-        borderRadius: BorderRadius.circular(20.r),
+        gradient: LinearGradient(
+          colors: [
+            AppColors.neonPurple.withOpacity(0.15), // You can change to any color
+            AppColors.neonPurple.withOpacity(0.05),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
-          color: isDark ? AppColors.hunterGreen600 : Colors.black12,
+          color: AppColors.neonPurple.withOpacity(0.3), // Match with gradient color
           width: 1.5,
         ),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 50.r,
-            height: 50.r,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppColors.asparagus, AppColors.yellowGreen],
-              ),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.shield, color: Colors.white, size: 28.r),
-          ),
-          SizedBox(width: 16.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: Form(
+        key: _reportFormKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
               children: [
+                Container(
+                  padding: EdgeInsets.all(10.w),
+                  decoration: BoxDecoration(
+                    color: AppColors.neonPurple.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                  child: Icon(
+                    Icons.report_problem_outlined,
+                    color: AppColors.neonPurple,
+                    size: 24.sp,
+                  ),
+                ),
+                SizedBox(width: 12.w),
                 Text(
-                  'Welcome, Warrior!',
-                  style: theme.textTheme.titleLarge?.copyWith(
+                  'Submit Report',
+                  style: TextStyle(
+                    fontSize: 18.sp,
                     fontWeight: FontWeight.bold,
                     color: isDark ? Colors.white : Colors.black87,
                   ),
                 ),
-                SizedBox(height: 4.h),
-                Text(
-                  auth.user?.email?.split('@')[0] ?? 'Player',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: isDark ? Colors.white60 : Colors.black54,
-                  ),
-                ),
               ],
             ),
-          ),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
-            decoration: BoxDecoration(
-              color: AppColors.asparagus.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(20.r),
+            SizedBox(height: 12.h),
+            
+            // Description text
+            Text(
+              'Report any issues or problems you encounter.',
+              style: TextStyle(
+                fontSize: 14.sp,
+                color: isDark ? Colors.white70 : Colors.black54,
+              ),
             ),
-            child: Row(
-              children: [
-                Icon(Icons.star, color: AppColors.yellowGreen, size: 16.r),
-                SizedBox(width: 4.w),
-                Text(
-                  'Lvl 12',
-                  style: TextStyle(
-                    color: AppColors.asparagus,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14.sp,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+            SizedBox(height: 20.h),
 
-  Widget _buildStartBattleButton(ThemeData theme, bool isDark) {
-    return ScaleTransition(
-      scale: _pulseAnim,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24.r),
-          gradient: LinearGradient(
-            colors: [
-              AppColors.bittersweet,
-              AppColors.bittersweet400,
-            ],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.bittersweet.withOpacity(0.4),
-              blurRadius: 20,
-              offset: Offset(0, 10),
+            // Issue TextField
+            TextFormField(
+              controller: _issueController,
+              maxLines: 4,
+              style: TextStyle(
+                color: isDark ? Colors.white : Colors.black87,
+                fontSize: 14.sp,
+              ),
+              decoration: InputDecoration(
+                labelText: 'Describe the Issue',
+                labelStyle: TextStyle(
+                  color: isDark ? Colors.white70 : Colors.black54,
+                  fontSize: 14.sp,
+                ),
+                hintText: 'Please provide detailed information about the issue...',
+                hintStyle: TextStyle(
+                  color: isDark ? Colors.white38 : Colors.black38,
+                  fontSize: 13.sp,
+                ),
+                filled: true,
+                fillColor: isDark
+                    ? Colors.black.withOpacity(0.2)
+                    : Colors.white.withOpacity(0.7),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                  borderSide: BorderSide(
+                    color: AppColors.neonPurple.withOpacity(0.3),
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                  borderSide: BorderSide(
+                    color: AppColors.neonPurple.withOpacity(0.3),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                  borderSide: BorderSide(
+                    color: AppColors.neonPurple,
+                    width: 2,
+                  ),
+                ),
+                errorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                  borderSide: BorderSide(
+                    color: Colors.red.withOpacity(0.5),
+                  ),
+                ),
+                focusedErrorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                  borderSide: BorderSide(
+                    color: Colors.red,
+                    width: 2,
+                  ),
+                ),
+                prefixIcon: Icon(
+                  Icons.description_outlined,
+                  color: AppColors.neonPurple,
+                  size: 20.sp,
+                ),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 16.w,
+                  vertical: 16.h,
+                ),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please describe the issue';
+                }
+                if (value.trim().length < 10) {
+                  return 'Issue description must be at least 10 characters';
+                }
+                return null;
+              },
+            ),
+            SizedBox(height: 16.h),
+
+            // Location TextField
+            TextFormField(
+              controller: _locationController,
+              style: TextStyle(
+                color: isDark ? Colors.white : Colors.black87,
+                fontSize: 14.sp,
+              ),
+              decoration: InputDecoration(
+                labelText: 'Location',
+                labelStyle: TextStyle(
+                  color: isDark ? Colors.white70 : Colors.black54,
+                  fontSize: 14.sp,
+                ),
+                hintText: 'Where did this issue occur?',
+                hintStyle: TextStyle(
+                  color: isDark ? Colors.white38 : Colors.black38,
+                  fontSize: 13.sp,
+                ),
+                filled: true,
+                fillColor: isDark
+                    ? Colors.black.withOpacity(0.2)
+                    : Colors.white.withOpacity(0.7),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                  borderSide: BorderSide(
+                    color: AppColors.neonPurple.withOpacity(0.3),
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                  borderSide: BorderSide(
+                    color: AppColors.neonPurple.withOpacity(0.3),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                  borderSide: BorderSide(
+                    color: AppColors.neonPurple,
+                    width: 2,
+                  ),
+                ),
+                errorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                  borderSide: BorderSide(
+                    color: Colors.red.withOpacity(0.5),
+                  ),
+                ),
+                focusedErrorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                  borderSide: BorderSide(
+                    color: Colors.red,
+                    width: 2,
+                  ),
+                ),
+                prefixIcon: Icon(
+                  Icons.location_on_outlined,
+                  color: AppColors.neonPurple,
+                  size: 20.sp,
+                ),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 16.w,
+                  vertical: 16.h,
+                ),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please enter location';
+                }
+                return null;
+              },
+            ),
+            SizedBox(height: 20.h),
+
+            // Submit Button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _submitReport,
+                icon: Icon(Icons.send_rounded, size: 20.sp),
+                label: Text(
+                  'Submit Report',
+                  style: TextStyle(
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.neonPurple,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(vertical: 12.h),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.r),
+                  ),
+                  elevation: 2,
+                ),
+              ),
             ),
           ],
         ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () {
-              // Start battle
-            },
-            borderRadius: BorderRadius.circular(24.r),
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 24.h),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.flash_on,
-                    color: Colors.white,
-                    size: 32.r,
-                  ),
-                  SizedBox(width: 12.w),
-                  Text(
-                    'START BATTLE',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 20.sp,
-                      letterSpacing: 1.5,
+      ),
+    ),
+  ),
+),
+             // ═══════════════════════════════════════════════════════
+                  // SUPPORT & HELP CARDS
+                  // ═══════════════════════════════════════════════════════
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.all(24.w),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Section Title
+                          Text(
+                            'Need Assistance?',
+                            style: TextStyle(
+                              fontSize: 20.sp,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                          SizedBox(height: 16.h),
+
+                          // ──────────────────────────────────────────────
+                          // GET HELP CARD
+                          // ──────────────────────────────────────────────
+                          Container(
+                            padding: EdgeInsets.all(20.w),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  AppColors.neonBlue.withOpacity(0.15),
+                                  AppColors.neonBlue.withOpacity(0.05),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(16.r),
+                              border: Border.all(
+                                color: AppColors.neonBlue.withOpacity(0.3),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: EdgeInsets.all(10.w),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.neonBlue
+                                            .withOpacity(0.2),
+                                        borderRadius:
+                                            BorderRadius.circular(12.r),
+                                      ),
+                                      child: Icon(
+                                        Icons.support_agent,
+                                        color: AppColors.neonBlue,
+                                        size: 24.sp,
+                                      ),
+                                    ),
+                                    SizedBox(width: 12.w),
+                                    Text(
+                                      'Get Help',
+                                      style: TextStyle(
+                                        fontSize: 18.sp,
+                                        fontWeight: FontWeight.bold,
+                                        color: isDark
+                                            ? Colors.white
+                                            : Colors.black87,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: 12.h),
+                                Text(
+                                  'Contact our support team for assistance.',
+                                  style: TextStyle(
+                                    fontSize: 14.sp,
+                                    color: isDark
+                                        ? Colors.white70
+                                        : Colors.black54,
+                                  ),
+                                ),
+                                SizedBox(height: 16.h),
+
+                                // Helpline Button
+                                InkWell(
+                                  onTap: () => _launchPhone('01310706874'),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.phone,
+                                        color: AppColors.neonGreen,
+                                        size: 20.sp,
+                                      ),
+                                      SizedBox(width: 8.w),
+                                      Text(
+                                        'Helpline: ',
+                                        style: TextStyle(
+                                          fontSize: 14.sp,
+                                          color: isDark
+                                              ? Colors.white70
+                                              : Colors.black54,
+                                        ),
+                                      ),
+                                      Text(
+                                        '01310706874',
+                                        style: TextStyle(
+                                          fontSize: 14.sp,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.neonGreen,
+                                          decoration: TextDecoration.underline,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(height: 8.h),
+
+                                // Email Button
+                                InkWell(
+                                  onTap: () =>
+                                      _launchEmail('support@greenlife.com'),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.email,
+                                        color: AppColors.neonGreen,
+                                        size: 20.sp,
+                                      ),
+                                      SizedBox(width: 8.w),
+                                      Text(
+                                        'Email: ',
+                                        style: TextStyle(
+                                          fontSize: 14.sp,
+                                          color: isDark
+                                              ? Colors.white70
+                                              : Colors.black54,
+                                        ),
+                                      ),
+                                      Flexible(
+                                        child: Text(
+                                          'support@greenlife.com',
+                                          style: TextStyle(
+                                            fontSize: 14.sp,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.neonGreen,
+                                            decoration:
+                                                TextDecoration.underline,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          SizedBox(height: 16.h),
+
+                          // ──────────────────────────────────────────────
+                          // VIDEO TUTORIALS CARD
+                          // ──────────────────────────────────────────────
+                          Container(
+                            padding: EdgeInsets.all(20.w),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  AppColors.neonGreen.withOpacity(0.15),
+                                  AppColors.neonGreen.withOpacity(0.05),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(16.r),
+                              border: Border.all(
+                                color: AppColors.neonGreen.withOpacity(0.3),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: EdgeInsets.all(10.w),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.neonGreen
+                                            .withOpacity(0.2),
+                                        borderRadius:
+                                            BorderRadius.circular(12.r),
+                                      ),
+                                      child: Icon(
+                                        Icons.play_circle_outline,
+                                        color: AppColors.neonGreen,
+                                        size: 24.sp,
+                                      ),
+                                    ),
+                                    SizedBox(width: 12.w),
+                                    Text(
+                                      'Tutorial Videos',
+                                      style: TextStyle(
+                                        fontSize: 18.sp,
+                                        fontWeight: FontWeight.bold,
+                                        color: isDark
+                                            ? Colors.white
+                                            : Colors.black87,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: 12.h),
+                                Text(
+                                  'Watch how to use GreenLife.',
+                                  style: TextStyle(
+                                    fontSize: 14.sp,
+                                    color: isDark
+                                        ? Colors.white70
+                                        : Colors.black54,
+                                  ),
+                                ),
+                                SizedBox(height: 16.h),
+
+                                // Watch Videos Button
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    onPressed: () {
+                                      // TODO: Navigate to video tutorials screen or open YouTube
+                                      // _launchUrl('https://youtube.com/your-channel');
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                              'Video Tutorials - Coming Soon!'),
+                                        ),
+                                      );
+                                    },
+                                    icon: Icon(Icons.video_library,
+                                        size: 20.sp),
+                                    label: Text(
+                                      'Watch Tutorials',
+                                      style: TextStyle(
+                                        fontSize: 14.sp,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.neonGreen,
+                                      foregroundColor: Colors.white,
+                                      padding:
+                                          EdgeInsets.symmetric(vertical: 12.h),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10.r),
+                                      ),
+                                      elevation: 2,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          SizedBox(height: 24.h),
+                        ],
+                      ),
                     ),
-                  ),
-                  SizedBox(width: 12.w),
-                  Icon(
-                    Icons.flash_on,
-                    color: Colors.white,
-                    size: 32.r,
                   ),
                 ],
               ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickStats(ThemeData theme, bool isDark) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildStatCard(
-            icon: Icons.emoji_events,
-            label: 'Wins',
-            value: '24',
-            color: AppColors.yellowGreen,
-            theme: theme,
-            isDark: isDark,
-          ),
-        ),
-        SizedBox(width: 12.w),
-        Expanded(
-          child: _buildStatCard(
-            icon: Icons.trending_up,
-            label: 'Win Rate',
-            value: '68%',
-            color: AppColors.asparagus,
-            theme: theme,
-            isDark: isDark,
-          ),
-        ),
-        SizedBox(width: 12.w),
-        Expanded(
-          child: _buildStatCard(
-            icon: Icons.local_fire_department,
-            label: 'Streak',
-            value: '5',
-            color: AppColors.bittersweet,
-            theme: theme,
-            isDark: isDark,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatCard({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-    required ThemeData theme,
-    required bool isDark,
-  }) {
-    return Container(
-      padding: EdgeInsets.all(16.w),
-      decoration: BoxDecoration(
-        color: isDark
-            ? AppColors.hunterGreen200.withOpacity(0.2)
-            : Colors.white,
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(
-          color: isDark ? AppColors.hunterGreen600 : Colors.black12,
-          width: 1.5,
-        ),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 28.r),
-          SizedBox(height: 8.h),
-          Text(
-            value,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : Colors.black87,
-            ),
-          ),
-          SizedBox(height: 4.h),
-          Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: isDark ? Colors.white60 : Colors.black54,
-              fontSize: 12.sp,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGameModesSection(ThemeData theme, bool isDark) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Game Modes',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: isDark ? Colors.white : Colors.black87,
-          ),
-        ),
-        SizedBox(height: 16.h),
-        _buildGameModeCard(
-          title: '1v1 Quick Battle',
-          description: 'Fast-paced quiz battle with nearby players',
-          icon: Icons.bolt,
-          gradient: [AppColors.asparagus, AppColors.yellowGreen],
-          theme: theme,
-          isDark: isDark,
-        ),
-        SizedBox(height: 12.h),
-        _buildGameModeCard(
-          title: 'Ranked Battle',
-          description: 'Compete for glory and climb the leaderboard',
-          icon: Icons.military_tech,
-          gradient: [AppColors.bittersweet, AppColors.bittersweet400],
-          theme: theme,
-          isDark: isDark,
-        ),
-        SizedBox(height: 12.h),
-        _buildGameModeCard(
-          title: 'Practice Mode',
-          description: 'Sharpen your skills with AI opponents',
-          icon: Icons.psychology,
-          gradient: [AppColors.hunterGreen, AppColors.hunterGreen600],
-          theme: theme,
-          isDark: isDark,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildGameModeCard({
-    required String title,
-    required String description,
-    required IconData icon,
-    required List<Color> gradient,
-    required ThemeData theme,
-    required bool isDark,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark
-            ? AppColors.hunterGreen200.withOpacity(0.2)
-            : Colors.white,
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(
-          color: isDark ? AppColors.hunterGreen600 : Colors.black12,
-          width: 1.5,
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            // Navigate to game mode
-          },
-          borderRadius: BorderRadius.circular(16.r),
-          child: Padding(
-            padding: EdgeInsets.all(16.w),
-            child: Row(
-              children: [
-                Container(
-                  width: 50.r,
-                  height: 50.r,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: gradient),
-                    borderRadius: BorderRadius.circular(12.r),
-                  ),
-                  child: Icon(icon, color: Colors.white, size: 28.r),
-                ),
-                SizedBox(width: 16.w),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : Colors.black87,
-                        ),
-                      ),
-                      SizedBox(height: 4.h),
-                      Text(
-                        description,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: isDark ? Colors.white60 : Colors.black54,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  Icons.arrow_forward_ios,
-                  size: 16.r,
-                  color: isDark ? Colors.white38 : Colors.black38,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFeaturesSection(ThemeData theme, bool isDark) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Game Features',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: isDark ? Colors.white : Colors.black87,
-          ),
-        ),
-        SizedBox(height: 16.h),
-        _buildFeatureItem(
-          icon: Icons.smart_toy,
-          title: 'AI-Powered Quizzes',
-          description: 'Dynamic questions from Gemini AI',
-          theme: theme,
-          isDark: isDark,
-        ),
-        _buildFeatureItem(
-          icon: Icons.timer,
-          title: 'Timed Rounds',
-          description: 'Fast-paced 1-minute battle rounds',
-          theme: theme,
-          isDark: isDark,
-        ),
-        _buildFeatureItem(
-          icon: Icons.upgrade,
-          title: 'Upgrade System',
-          description: 'Unlock weapons and planes with points',
-          theme: theme,
-          isDark: isDark,
-        ),
-        _buildFeatureItem(
-          icon: Icons.favorite,
-          title: 'Health & Armor',
-          description: 'Strategic gameplay with recovery system',
-          theme: theme,
-          isDark: isDark,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFeatureItem({
-    required IconData icon,
-    required String title,
-    required String description,
-    required ThemeData theme,
-    required bool isDark,
-  }) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 16.h),
-      child: Row(
-        children: [
-          Container(
-            width: 40.r,
-            height: 40.r,
-            decoration: BoxDecoration(
-              color: AppColors.asparagus.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(10.r),
-            ),
-            child: Icon(icon, color: AppColors.asparagus, size: 22.r),
-          ),
-          SizedBox(width: 16.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black87,
-                  ),
-                ),
-                SizedBox(height: 2.h),
-                Text(
-                  description,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: isDark ? Colors.white60 : Colors.black54,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }

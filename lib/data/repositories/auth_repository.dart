@@ -2,33 +2,42 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_faysal_game/core/constants/firebase_collections.dart';
 import 'package:flutter_faysal_game/core/utils/logger.dart';
+import 'package:flutter_faysal_game/services/localdata_service.dart'; 
 import 'package:injectable/injectable.dart';
 
 @lazySingleton
 class AuthRepository {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _firebaseService = FirebaseFirestore.instance;
+  final LocalStorageService _storage; // ← REPLACED HiveService
 
-  // ────────────────────────────────────────────────────────────────
-  // Auth State Stream
-  // ────────────────────────────────────────────────────────────────
+  AuthRepository(this._storage);
+
+  // ────────────────────────────────────────────────
+  // Auth State Stream + Auto Save
+  // ────────────────────────────────────────────────
   Stream<User?> get userChanges {
-    logger.i('Auth State Stream: Listening for user changes');
-    return _firebaseAuth.authStateChanges();
+    logger.i('Auth State Stream: Listening');
+    return _firebaseAuth.authStateChanges().asyncMap((user) async {
+      if (user != null) {
+        await _saveUserToPrefs(user);
+      } else {
+        await _storage.clearUser();
+      }
+      return user;
+    });
   }
 
-  // ────────────────────────────────────────────────────────────────
+  // ────────────────────────────────────────────────
   // Sign In
-  // ────────────────────────────────────────────────────────────────
+  // ────────────────────────────────────────────────
   Future<User?> signIn(String email, String password) async {
-    logger.i('Sign In: Attempting login for $email');
-
+    logger.i('Sign In: $email');
     try {
-      // Bypass reCAPTCHA only in debug mode (web)
       if (kIsWeb && kDebugMode) {
         await _firebaseAuth.setSettings(forceRecaptchaFlow: false);
-        logger.d('reCAPTCHA: Bypassed for testing (web debug)');
       }
 
       final credential = await _firebaseAuth.signInWithEmailAndPassword(
@@ -38,27 +47,26 @@ class AuthRepository {
 
       final user = credential.user;
       if (user != null) {
-        logger.i('Sign In Success: ${user.email} (UID: ${user.uid})');
-      } else {
-        logger.w('Sign In: Credential user is null');
+        await _saveUserToPrefs(user);
+        logger.i('Sign In Success');
       }
-
       return user;
     } on FirebaseAuthException catch (e, stack) {
       logger.e('Sign In Failed: ${e.code}', error: e, stackTrace: stack);
       rethrow;
-    } catch (e, stack) {
-      logger.e('Sign In: Unexpected error', error: e, stackTrace: stack);
-      rethrow;
     }
   }
 
-  // ────────────────────────────────────────────────────────────────
-  // Sign Up (Basic)
-  // ────────────────────────────────────────────────────────────────
-  Future<User?> signUp(String email, String password) async {
-    logger.i('Sign Up: Creating account for $email');
-
+  // ────────────────────────────────────────────────
+  // Sign Up With Details
+  // ────────────────────────────────────────────────
+  Future<User?> signUpWithDetails({
+    required String email,
+    required String password,
+    required String username,
+    required String location,
+  }) async {
+    logger.i('Sign Up: $email');
     try {
       final credential = await _firebaseAuth.createUserWithEmailAndPassword(
         email: email,
@@ -66,84 +74,55 @@ class AuthRepository {
       );
 
       final user = credential.user;
-      if (user != null) {
-        logger.i('Sign Up Success: ${user.email} (UID: ${user.uid})');
-        await _createUserDocument(user, {
-          'email': user.email,
+      if (user == null) return null;
+
+      final userDocRef = _firebaseService.collection('users').doc(user.uid);
+      await userDocRef.set({
+        'profile': {
+          'username': username,
+          'email': email,
+          'displayName': username,
+          'photoURL': null,
+          'location': location,
           'createdAt': FieldValue.serverTimestamp(),
-          'isActive': true,
-        });
-      }
+          'lastLogin': FieldValue.serverTimestamp(),
+        },
+        'stats': {
+          'greenCoins': 0,
+          'xp': 0,
+          'level': 0,
+          'streak': 0,
+          'currentStreakStartDate': FieldValue.serverTimestamp(),
+          'longestStreak': 0,
+          'totalTasksCompleted': 0,
+        }
+      });
+
+      // Initialize badge
+      await userDocRef.collection(FirebaseCollections.badges).doc('initBadge').set({
+        'badgeName': 'Welcome Badge',
+        'earnedAt': FieldValue.serverTimestamp(),
+        'category': 'Onboarding',
+      });
+
+      // SAVE TO SharedPreferences
+      await _saveUserToPrefs(user, username: username);
 
       return user;
     } on FirebaseAuthException catch (e, stack) {
       logger.e('Sign Up Failed: ${e.code}', error: e, stackTrace: stack);
       rethrow;
-    } catch (e, stack) {
-      logger.e('Sign Up: Unexpected error', error: e, stackTrace: stack);
-      rethrow;
     }
   }
 
-  // ────────────────────────────────────────────────────────────────
-  // Sign Up With Details (Full Profile)
-  // ────────────────────────────────────────────────────────────────
-  Future<User?> signUpWithDetails({
-    required String email,
-    required String password,
-    required String username,
-    required String company,
-    required String country,
-  }) async {
-    logger.i('Sign Up With Details: Creating account for $email');
-
-    try {
-      // 1. Create Auth User
-      final credential = await _firebaseAuth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-
-      final user = credential.user;
-      if (user == null) {
-        logger.w('Sign Up: User created but null returned');
-        return null;
-      }
-
-      logger.i('Auth Success: ${user.email} (UID: ${user.uid})');
-
-      // 2. Create Full Firestore Document
-      final userData = {
-        'email': email,
-        'username': username,
-        'company': company,
-        'country': country,
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-        'isActive': true,
-      };
-
-      await _createUserDocument(user, userData);
-      logger.i('Firestore User Doc Created: ${user.uid}');
-
-      return user;
-    } on FirebaseAuthException catch (e, stack) {
-      logger.e('Sign Up With Details Failed: ${e.code}', error: e, stackTrace: stack);
-      rethrow;
-    } catch (e, stack) {
-      logger.e('Sign Up With Details: Unexpected error', error: e, stackTrace: stack);
-      rethrow;
-    }
-  }
-
-  // ────────────────────────────────────────────────────────────────
+  // ────────────────────────────────────────────────
   // Sign Out
-  // ────────────────────────────────────────────────────────────────
+  // ────────────────────────────────────────────────
   Future<void> signOut() async {
-    logger.i('Sign Out: Signing out current user');
-
+    logger.i('Sign Out');
     try {
       await _firebaseAuth.signOut();
+      await _storage.clearUser();
       logger.i('Sign Out Success');
     } catch (e, stack) {
       logger.e('Sign Out Failed', error: e, stackTrace: stack);
@@ -151,22 +130,21 @@ class AuthRepository {
     }
   }
 
-  // ────────────────────────────────────────────────────────────────
-  // Helper: Create User Document (Firestore)
-  // ────────────────────────────────────────────────────────────────
-  Future<void> _createUserDocument(User user, Map<String, dynamic> data) async {
-    try {
-      await _firestore.collection('users').doc(user.uid).set(
-            data,
-            SetOptions(merge: true),
-          );
-    } catch (e, stack) {
-      logger.e(
-        'Failed to create user document for UID: ${user.uid}',
-        error: e,
-        stackTrace: stack,
-      );
-      // Do NOT rethrow — auth already succeeded
-    }
+  // ────────────────────────────────────────────────
+  // Helper: Save to SharedPreferences
+  // ────────────────────────────────────────────────
+  Future<void> _saveUserToPrefs(User user, {String? username}) async {
+    final name = username ?? user.displayName ?? 'User';
+    await _storage.saveUser(
+     user.uid,
+  user.email ?? '',
+     name,
+    );
+    logger.i('User saved locally: $user');
   }
+
+  // ────────────────────────────────────────────────
+  // Get Offline User
+  // ────────────────────────────────────────────────
+  Map<String, String?> get offlineUser => _storage.user;
 }

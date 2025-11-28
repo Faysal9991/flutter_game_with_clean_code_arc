@@ -2,7 +2,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_faysal_game/core/utils/helpers.dart';
+import 'package:flutter_faysal_game/presentation/admin_panel/provider/admin_provider.dart';
+import 'package:flutter_faysal_game/presentation/screens/home/provider/home_provider.dart';
+import 'package:flutter_faysal_game/presentation/splash/splash_screen.dart';
+import 'package:flutter_faysal_game/services/localdata_service.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get_it/get_it.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart'; // ← ADD for preloading
 
@@ -12,16 +17,18 @@ import 'firebase_options.dart';
 import 'presentation/providers/auth_provider.dart';
 import 'presentation/screens/authentication/sign_in.dart';
 
+// main.dart
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase
+  // 1. Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
-  // Initialize DI
   await configureDependencies();
 
-  // Optional: Preload Roboto to avoid flash
+final storage = GetIt.I<LocalStorageService>();
+  await storage.init();
+
+  // 4. Preload fonts
   await GoogleFonts.pendingFonts([GoogleFonts.roboto()]);
 
   runApp(const MyApp());
@@ -40,6 +47,8 @@ class MyApp extends StatelessWidget {
         return MultiProvider(
           providers: [
             ChangeNotifierProvider(create: (_) => getIt<AuthProvider>()),
+             ChangeNotifierProvider(create: (_) => getIt<AdminProvider>()),
+              ChangeNotifierProvider(create: (_) => getIt<HomeProvider>()),
           ],
           child: MaterialApp(
             navigatorKey: Helpers.navigatorKey,
@@ -48,7 +57,7 @@ class MyApp extends StatelessWidget {
            theme: AppTheme.light(context),
   darkTheme: AppTheme.dark(context),
   themeMode: ThemeMode.dark, // ← NOW USING YOUR CUSTOM THEME
-            home: const SignInScreen(),
+            home: SplashWrapper(),
           ),
         );
       },

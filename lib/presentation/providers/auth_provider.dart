@@ -59,8 +59,7 @@ Future<void> signUpWithDetails({
   required String email,
   required String password,
   required String username,
-  required String company,
-  required String country,
+  required String location,
 }) async {
   try {
     _setLoading(true);
@@ -68,9 +67,7 @@ Future<void> signUpWithDetails({
     await _authRepository.signUpWithDetails(
       email: email,
       password: password,
-      username: username,
-      company: company,
-      country: country,
+      username: username, location: location,
     );
   } on FirebaseAuthException catch (e) {
     _setError(_getErrorMessage(e));

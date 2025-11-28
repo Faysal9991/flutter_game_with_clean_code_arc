@@ -1,6 +1,9 @@
 // presentation/screens/authentication/sign_in.dart
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_faysal_game/core/utils/helpers.dart';
+import 'package:flutter_faysal_game/presentation/admin_panel/home_screen.dart';
 import 'package:flutter_faysal_game/presentation/screens/authentication/sign_up.dart';
 import 'package:flutter_faysal_game/presentation/screens/home/home_screen.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -26,7 +29,7 @@ class _SignInScreenState extends State<SignInScreen>
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
   
-  bool _isLoading = false;
+  final bool _isLoading = false;
   String? _errorMessage;
 
   @override
@@ -80,8 +83,10 @@ Future<void> _signIn() async {
 
     final auth = context.read<AuthProvider>();
     try {
-      await auth.signIn(_emailCtrl.text.trim(), _passCtrl.text);
+    await auth.signIn(_emailCtrl.text.trim(), _passCtrl.text);
      if (auth.user != null) {
+
+      auth.user!.email== "admin@gmail.com"?Helpers.pushAndClearStack(const AdminHomeScreen()):
   Helpers.pushAndClearStack(const HomeScreen());
 }
     } catch (_) {
@@ -99,21 +104,35 @@ Future<void> _signIn() async {
 
     return Scaffold(
       backgroundColor: isDark ? Colors.black : const Color(0xFFF8F9FA),
-      body: SafeArea(
-        child: FadeTransition(
-          opacity: _fadeAnim,
-          child: SlideTransition(
-            position: _slideAnim,
-            child: Center(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(horizontal: 24.w),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                  
-                      _buildLoginView(context, auth, theme, isDark),
+      body: Container(
+         decoration: const BoxDecoration(
+        gradient: RadialGradient(
+          center: Alignment(0.4, -0.6),
+          radius: 1.5,
+          colors: [
+            Color(0xFF1a5c44),
+            Color(0xFF0b2030),
+            Color(0xFF07141d),
+          ],
+          stops: [0.0, 0.4, 1.0],
+        ),
+      ),
+        child: SafeArea(
+          child: FadeTransition(
+            opacity: _fadeAnim,
+            child: SlideTransition(
+              position: _slideAnim,
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.symmetric(horizontal: 24.w),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
                     
-                  ],
+                        _buildLoginView(context, auth, theme, isDark),
+                      
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -130,33 +149,7 @@ Future<void> _signIn() async {
       child: Column(
         children: [
           // ── Logo/Icon ────────────────────────────────────────────
-          Container(
-            width: 80.r,
-            height: 80.r,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  theme.primaryColor,
-                  theme.primaryColor.withOpacity(0.7),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: theme.primaryColor.withOpacity(0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Icon(
-              Icons.shield_rounded,
-              size: 40.r,
-              color: Colors.white,
-            ),
-          ),
+          Image.asset("assets/images/leaf_splash.png",height: 100,width: 100,),
           SizedBox(height: 32.h),
 
           // ── Title ────────────────────────────────────────────────
@@ -171,7 +164,7 @@ Future<void> _signIn() async {
           ),
           SizedBox(height: 8.h),
           Text(
-            'Sign in to continue to Corporate Fun',
+            'Sign in to continue to GreenLife',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: isDark ? Colors.white60 : Colors.black45,
               fontSize: 15.sp,
@@ -325,4 +318,70 @@ Future<void> _signIn() async {
 
 
 
+
+
+}class GlassLoginCard extends StatelessWidget {
+  final Widget child;
+  final bool isDark;
+
+  const GlassLoginCard({
+    super.key,
+    required this.child,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Center(
+      child: Container(
+        constraints: BoxConstraints(maxWidth: 420.w),
+        margin: EdgeInsets.symmetric(horizontal: 24.w),
+        padding: EdgeInsets.fromLTRB(32.w, 40.h, 32.w, 32.h),
+        decoration: BoxDecoration(
+          // Glassmorphic background
+          color: isDark
+              ? Colors.white.withOpacity(0.08)
+              : Colors.white.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(28.r),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.18),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDark ? 0.4 : 0.2),
+              blurRadius: 40,
+              offset: const Offset(0, 20),
+            ),
+            BoxShadow(
+              color: theme.primaryColor.withOpacity(0.15),
+              blurRadius: 30,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            padding: EdgeInsets.symmetric(vertical: 8.h),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(28.r),
+              // Inner subtle gradient for depth
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.white.withOpacity(isDark ? 0.1 : 0.08),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
 }
